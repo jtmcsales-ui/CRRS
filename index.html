@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans,system-ui,sans-serif);background:var(--color-background-tertiary,#f4f4f4);color:var(--color-text-primary,#111);min-height:100vh}
+
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
+.auth-card{background:var(--color-background-primary,#fff);border:0.5px solid var(--color-border-tertiary,rgba(0,0,0,0.12));border-radius:16px;padding:2.5rem;width:100%;max-width:400px}
+.logo-row{display:flex;align-items:center;gap:12px;margin-bottom:1.75rem}
+.logo-icon{width:44px;height:44px;background:#185FA5;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;flex-shrink:0}
+.logo-title{font-size:17px;font-weight:500}
+.logo-sub{font-size:11px;color:var(--color-text-secondary,#888);margin-top:2px}
+.auth-desc{font-size:13px;color:var(--color-text-secondary,#666);margin-bottom:1.5rem;line-height:1.5}
+.field{margin-bottom:1rem}
+.field label{display:block;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.05em;color:var(--color-text-secondary,#666);margin-bottom:5px}
+.field input,.field select{width:100%;padding:9px 12px;border:0.5px solid var(--color-border-secondary,rgba(0,0,0,0.2));border-radius:8px;font-size:14px;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#111);outline:none;transition:border 0.15s,box-shadow 0.15s}
+.field input:focus,.field select:focus{border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,0.1)}
+.field input:disabled{opacity:0.55;background:var(--color-background-secondary,#f5f5f5);cursor:not-allowed}
+.btn{display:block;width:100%;padding:10px 16px;border-radius:8px;border:none;font-size:14px;font-weight:500;cursor:pointer;transition:opacity 0.15s,transform 0.1s;text-align:center}
+.btn:active{transform:scale(0.98)}
+.btn-primary{background:#185FA5;color:#fff}
+.btn-primary:hover{opacity:0.88}
+.btn-primary:disabled{opacity:0.4;cursor:not-allowed}
+.btn-ghost{background:transparent;border:0.5px solid var(--color-border-secondary,rgba(0,0,0,0.2));color:var(--color-text-primary,#111)}
+.btn-ghost:hover{background:var(--color-background-secondary,#f5f5f5)}
+.btn-sm{width:auto;padding:6px 14px;font-size:12px}
+.btn-danger-sm{width:auto;padding:5px 11px;font-size:12px;background:#FCEBEB;border:0.5px solid #F7C1C1;color:#A32D2D;border-radius:6px;cursor:pointer;transition:background 0.1s}
+.btn-danger-sm:hover{background:#F7C1C1}
+
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:1rem;display:flex;align-items:flex-start;gap:8px;line-height:1.4}
+.alert i{flex-shrink:0;margin-top:1px}
+.alert.err{background:#FCEBEB;color:#A32D2D;border:0.5px solid #F7C1C1}
+.alert.ok{background:#EAF3DE;color:#3B6D11;border:0.5px solid #C0DD97}
+.alert.info{background:#E6F1FB;color:#185FA5;border:0.5px solid #B5D4F4}
+
+/* Shell */
+.shell{display:flex;min-height:100vh}
+.sidebar{width:218px;min-width:218px;background:var(--color-background-primary,#fff);border-right:0.5px solid var(--color-border-tertiary,rgba(0,0,0,0.1));display:flex;flex-direction:column}
+.sb-top{padding:1.25rem;border-bottom:0.5px solid var(--color-border-tertiary,rgba(0,0,0,0.1))}
+.sb-logo{display:flex;align-items:center;gap:9px}
+.sb-icon{width:32px;height:32px;background:#185FA5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;flex-shrink:0}
+.sb-name{font-size:14px;font-weight:500}
+.sb-nav{flex:1;padding:0.75rem 0}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 1.25rem;font-size:13px;cursor:pointer;color:var(--color-text-secondary,#666);user-select:none;transition:background 0.1s,color 0.1s}
+.nav-item:hover{background:var(--color-background-secondary,#f5f5f5);color:var(--color-text-primary,#111)}
+.nav-item.active{background:#E6F1FB;color:#185FA5;font-weight:500}
+.nav-item i{font-size:16px}
+.nav-section{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.07em;color:var(--color-text-secondary,#bbb);padding:1rem 1.25rem 0.25rem;margin-top:0.25rem}
+.sb-footer{padding:1rem 1.25rem;border-top:0.5px solid var(--color-border-tertiary,rgba(0,0,0,0.1))}
+.user-row{display:flex;align-items:center;gap:9px}
+.avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0}
+.avatar.user{background:#E6F1FB;color:#185FA5}
+.avatar.admin{background:#FAEEDA;color:#854F0B}
+.user-info{flex:1;overflow:hidden}
+.user-nm{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-role{font-size:10px;color:var(--color-text-secondary,#999)}
+.icon-btn{background:none;border:none;cursor:pointer;padding:4px;border-radius:6px;color:var(--color-text-secondary,#888);font-size:16px;line-height:1;transition:background 0.1s,color 0.1s;flex-shrink:0}
+.icon-btn:hover{background:var(--color-background-secondary,#f0f0f0);color:var(--color-text-primary,#111)}
+
+/* Main */
+.main{flex:1;padding:1.75rem 2rem;overflow-y:auto;max-height:100vh;display:flex;flex-direction:column;gap:1.5rem}
+.ph{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.ptitle{font-size:19px;font-weight:500}
+.psub{font-size:13px;color:var(--color-text-secondary,#666);margin-top:3px}
+
+/* Stats */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat-card{background:var(--color-background-secondary,#f8f8f8);border-radius:8px;padding:14px 16px}
+.slabel{font-size:11px;color:var(--color-text-secondary,#888);margin-bottom:5px;font-weight:500;text-transform:uppercase;letter-spacing:0.04em}
+.sval{font-size:22px;font-weight:500}
+.blue{color:#185FA5}.green{color:#3B6D11}.amber{color:#854F0B}.red{color:#A32D2D}
+
+/* Rooms */
+.rooms-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.room-card{background:var(--color-background-primary,#fff);border:0.5px solid var(--color-border-tertiary,rgba(0,0,0,0.1));border-radius:12px;padding:1.1rem 1.25rem;transition:border-color 0.2s}
+.room-card.busy{border-color:#F09595}
+.room-card.free{border-color:#9FE1CB}
+.rc-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.rc-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.rc-icon.sm{background:#E1F5EE;color:#0F6E56}
+.rc-icon.bg{background:#E6F1FB;color:#185FA5}
+.rc-name{font-size:14px;font-weight:500}
+.rc-cap{font-size:11px;color:var(--color-text-secondary,#888)}
+.rc-badge{margin-left:auto;font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px}
+.rc-badge.free{background:#EAF3DE;color:#3B6D11}
+.rc-badge.busy{background:#FCEBEB;color:#A32D2D}
+.rc-detail{font-size:12px;color:var(--color-text-secondary,#777);line-height:1.7}
+
+/* Calendar */
+.cal-row{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px}
+.cday{min-width:50px;padding:7px 4px;border-radius:8px;border:0.5px solid var(--color-border-tertiary,rgba(0,0,0,0.1));background:var(--color-background-primary,#fff);cursor:pointer;text-align:center;user-select:none;transition:border-color 0.15s,background 0.15s}
+.cday:hover{border-color:#185FA5}
+.cday.sel{background:#185FA5;border-color:#185FA5;color:#fff}
+.cday.hasbk{border-color:#E24B4A}
+.dn{font-size:9px;text-transform:uppercase;color:var(--color-text-secondary,#999)}
+.cday.sel .dn{color:rgba(255,255,255,0.7)}
+.dd{font-size:16px;font-weight:500;margin:2px 0}
+.dot{width:5px;height:5px;background:#E24B4A;border-radius:50%;margin:0 auto}
+.cday.sel .dot{background:#fff}
+
+/* Table */
+.tw{background:var(--color-background-primary,#fff);border:0.5px solid var(--color-border-tertiary,rgba(0,0,0,0.1));border-radius:12px;overflow:hidden}
+.tw-head{padding:0.875rem 1.25rem;border-bottom:0.5px solid var(--color-border-tertiary,rgba(0,0,0,0.1));display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.tw-title{font-size:14px;font-weight:500}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:9px 1.25rem;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--color-text-secondary,#888);background:var(--color-background-secondary,#f8f8f8);border-bottom:0.5px solid var(--color-border-tertiary,rgba(0,0,0,0.1))}
+td{padding:11px 1.25rem;border-bottom:0.5px solid var(--color-border-tertiary,rgba(0,0,0,0.07));vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(0,0,0,0.012)}
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.badge.sm-r{background:#E1F5EE;color:#0F6E56}
+.badge.bg-r{background:#E6F1FB;color:#185FA5}
+.badge.approved{background:#EAF3DE;color:#3B6D11}
+.badge.deleted{background:var(--color-background-secondary,#f0f0f0);color:var(--color-text-secondary,#999)}
+.empty-st{text-align:center;padding:2.5rem;color:var(--color-text-secondary,#aaa);font-size:13px}
+.empty-st i{font-size:28px;display:block;margin-bottom:8px;opacity:0.5}
+
+/* Form */
+.form-card{background:var(--color-background-primary,#fff);border:0.5px solid var(--color-border-tertiary,rgba(0,0,0,0.1));border-radius:12px;padding:1.5rem;max-width:520px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.42);display:flex;align-items:center;justify-content:center;z-index:100;padding:1rem}
+.modal{background:var(--color-background-primary,#fff);border-radius:16px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.mh{padding:1.25rem 1.5rem 1rem;border-bottom:0.5px solid var(--color-border-tertiary,rgba(0,0,0,0.1));display:flex;align-items:center;justify-content:space-between}
+.mh-title{font-size:15px;font-weight:500}
+.mb{padding:1.25rem 1.5rem}
+.mf{padding:1rem 1.5rem;border-top:0.5px solid var(--color-border-tertiary,rgba(0,0,0,0.1));display:flex;gap:10px}
+.mf .btn{flex:1}
+
+/* Admin badge */
+.admin-badge{font-size:10px;font-weight:500;padding:2px 8px;border-radius:20px;background:#FAEEDA;color:#854F0B;margin-left:6px}
+
+/* Log table */
+.log-tag{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500}
+.log-tag.book{background:#E6F1FB;color:#185FA5}
+.log-tag.del{background:#FCEBEB;color:#A32D2D}
+.log-tag.login{background:#EAF3DE;color:#3B6D11}
+.log-tag.edit{background:#FAEEDA;color:#854F0B}
+.log-tag.usr{background:#EFE7FB;color:#5B2D9E}
+
+/* Row actions */
+.row-actions{display:flex;gap:6px}
+.btn-edit-sm{width:auto;padding:5px 11px;font-size:12px;background:#FAEEDA;border:0.5px solid #F0D9A8;color:#854F0B;border-radius:6px;cursor:pointer;transition:background 0.1s}
+.btn-edit-sm:hover{background:#F0D9A8}
+.role-pill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.role-pill.adm{background:#FAEEDA;color:#854F0B}
+.role-pill.stf{background:#E6F1FB;color:#185FA5}
+.checkbox-row{display:flex;align-items:center;gap:8px;margin-bottom:1rem}
+.checkbox-row input{width:auto}
+.checkbox-row label{font-size:13px;color:var(--color-text-primary,#111);text-transform:none;font-weight:400}
+.hint{font-size:11px;color:var(--color-text-secondary,#999);margin-top:4px}
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+</head>
+<body>
+<div id="app"><div class="auth-wrap"><div style="font-size:13px;color:var(--color-text-secondary)">Loading…</div></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+const SB_URL='https://snbkicwuqimcaluaqdll.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNuYmtpY3d1cWltY2FsdWFxZGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAyMzIxNjksImV4cCI6MjA2NTgwODE2OX0.XPcCKO3SbUW72FyKZKJpxgSSp6QAsDTHcHSXW5T04XY';
+const db = supabase.createClient(SB_URL, SB_KEY);
+
+/* ─── Default seed admin (created by the setup SQL below, can be changed afterward from the Manage Users page) ─── */
+const ADMIN_NAME = 'Admin';
+const ADMIN_PASS = 'admin123';
+
+let S = {
+  user: null,         /* {id, name, isAdmin} */
+  page: 'dashboard',
+  bookings: [],
+  logs: [],
+  users: [],
+  selDate: null,
+  modal: false,
+  editBk: null,        /* booking object currently being edited by admin, or null */
+  userModal: null,     /* null=closed, {}=add mode, user-obj=edit mode */
+  formAlert: null,
+  userFormAlert: null,
+  dbReady: false,
+  setupSQL: false,
+  authErr: '',
+  authLoad: false
+};
+
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function td(){return new Date().toISOString().split('T')[0];}
+function fmt(d){if(!d)return'';return new Date(d+'T00:00:00').toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});}
+function fmtT(t){if(!t)return'';const[h,m]=t.split(':');const hr=parseInt(h);return`${hr%12||12}:${m} ${hr<12?'AM':'PM'}`;}
+function fmtDT(ts){if(!ts)return'';const d=new Date(ts);return d.toLocaleDateString('en-PH',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-PH',{hour:'numeric',minute:'2-digit'});}
+function ini(n){return(n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);}
+function days16(){const r=[];const now=new Date();for(let i=-1;i<=14;i++){const d=new Date(now);d.setDate(d.getDate()+i);r.push(d);}return r;}
+function ds(d){return d.toISOString().split('T')[0];}
+
+/* ─── DB ─── */
+async function checkDB(){
+  try{
+    const checks=await Promise.all([
+      db.from('conference_bookings').select('id').limit(1),
+      db.from('conf_logs').select('id').limit(1),
+      db.from('conf_users').select('id').limit(1)
+    ]);
+    for(const{error} of checks){
+      if(error&&(error.code==='42P01'||error.message?.includes('does not exist'))){S.setupSQL=true;return false;}
+    }
+    return true;
+  }catch(e){S.setupSQL=true;return false;}
+}
+
+async function loadUsers(){
+  const{data}=await db.from('conf_users').select('*').order('name',{ascending:true});
+  if(data) S.users=data;
+}
+
+async function loadData(){
+  const[{data:bk},{data:lg}]=await Promise.all([
+    db.from('conference_bookings').select('*').order('created_at',{ascending:false}),
+    db.from('conf_logs').select('*').order('created_at',{ascending:false}).limit(100)
+  ]);
+  if(bk) S.bookings=bk;
+  if(lg) S.logs=lg;
+}
+
+async function addLog(action,detail){
+  await db.from('conf_logs').insert([{
+    actor: S.user?.name||'unknown',
+    action,
+    detail,
+    created_at: new Date().toISOString()
+  }]);
+  /* reload logs */
+  const{data}=await db.from('conf_logs').select('*').order('created_at',{ascending:false}).limit(100);
+  if(data) S.logs=data;
+}
+
+async function doBook(form){
+  /* conflict check */
+  const conflict=S.bookings.some(b=>
+    b.conference_room===form.conference_room&&
+    b.request_date===form.request_date&&
+    b.status==='approved'&&
+    !(form.time_to<=b.time_from||form.time_from>=b.time_to)
+  );
+  if(conflict) return{error:'This room is already booked during that time.'};
+
+  const reqBy=form.requested_by||S.user.name;
+  const{data,error}=await db.from('conference_bookings').insert([{
+    date_today:td(),
+    request_date:form.request_date,
+    time_from:form.time_from,
+    time_to:form.time_to,
+    conference_room:form.conference_room,
+    requested_by:reqBy,
+    status:'approved',
+    created_at:new Date().toISOString()
+  }]).select().single();
+
+  if(error) return{error:error.message};
+  S.bookings.unshift(data);
+  await addLog('BOOK',`${reqBy} booked ${form.conference_room} on ${fmt(form.request_date)} ${fmtT(form.time_from)}–${fmtT(form.time_to)}`);
+  return{ok:true};
+}
+
+async function doEditBooking(id,form){
+  const conflict=S.bookings.some(b=>
+    b.id!==id&&
+    b.conference_room===form.conference_room&&
+    b.request_date===form.request_date&&
+    b.status==='approved'&&
+    !(form.time_to<=b.time_from||form.time_from>=b.time_to)
+  );
+  if(conflict) return{error:'This room is already booked during that time.'};
+
+  const{data,error}=await db.from('conference_bookings').update({
+    request_date:form.request_date,
+    time_from:form.time_from,
+    time_to:form.time_to,
+    conference_room:form.conference_room,
+    requested_by:form.requested_by
+  }).eq('id',id).select().single();
+
+  if(error) return{error:error.message};
+  S.bookings=S.bookings.map(b=>b.id===id?data:b);
+  await addLog('EDIT',`Admin edited booking — ${data.conference_room} on ${fmt(data.request_date)} ${fmtT(data.time_from)}–${fmtT(data.time_to)} for ${data.requested_by}`);
+  return{ok:true};
+}
+
+async function doDelete(id){
+  const bk=S.bookings.find(b=>b.id===id);
+  const{error}=await db.from('conference_bookings').delete().eq('id',id);
+  if(error) return{error:error.message};
+  S.bookings=S.bookings.filter(b=>b.id!==id);
+  if(bk) await addLog('DELETE',`Admin deleted booking by ${bk.requested_by} — ${bk.conference_room} on ${fmt(bk.request_date)}`);
+  return{ok:true};
+}
+
+/* ─── AUTH (DB-backed: name + password looked up in conf_users) ─── */
+async function doLogin(name,pass){
+  const trimmed=name.trim();
+  if(!trimmed||!pass) return{error:'Enter your name and password.'};
+  const{data,error}=await db.from('conf_users').select('*').ilike('name',trimmed).maybeSingle();
+  if(error) return{error:error.message};
+  if(!data||data.password!==pass) return{error:'Invalid name or password.'};
+  S.user={id:data.id,name:data.name,isAdmin:!!data.is_admin};
+  await addLog('LOGIN',`${data.name} signed in`);
+  await Promise.all([loadData(),loadUsers()]);
+  return{ok:true};
+}
+
+/* ─── USER MANAGEMENT (admin only) ─── */
+async function doAddUser(form){
+  const{data,error}=await db.from('conf_users').insert([{
+    name:form.name.trim(),
+    password:form.password,
+    is_admin:!!form.is_admin,
+    created_at:new Date().toISOString()
+  }]).select().single();
+  if(error){
+    if(error.code==='23505') return{error:'A user with that name already exists.'};
+    return{error:error.message};
+  }
+  S.users.push(data);
+  S.users.sort((a,b)=>a.name.localeCompare(b.name));
+  await addLog('USER_ADD',`Admin added user ${data.name}${data.is_admin?' (Admin)':''}`);
+  return{ok:true};
+}
+
+async function doEditUser(id,form){
+  const upd={name:form.name.trim(),is_admin:!!form.is_admin};
+  if(form.password) upd.password=form.password;
+  const{data,error}=await db.from('conf_users').update(upd).eq('id',id).select().single();
+  if(error){
+    if(error.code==='23505') return{error:'A user with that name already exists.'};
+    return{error:error.message};
+  }
+  S.users=S.users.map(u=>u.id===id?data:u).sort((a,b)=>a.name.localeCompare(b.name));
+  if(S.user&&S.user.id===id) S.user={...S.user,name:data.name,isAdmin:!!data.is_admin};
+  await addLog('USER_EDIT',`Admin updated user ${data.name}`);
+  return{ok:true};
+}
+
+async function doDeleteUser(id){
+  const target=S.users.find(u=>u.id===id);
+  if(!target) return{error:'User not found.'};
+  if(target.is_admin){
+    const adminCount=S.users.filter(u=>u.is_admin).length;
+    if(adminCount<=1) return{error:'Cannot delete the last remaining admin.'};
+  }
+  const{error}=await db.from('conf_users').delete().eq('id',id);
+  if(error) return{error:error.message};
+  S.users=S.users.filter(u=>u.id!==id);
+  await addLog('USER_DELETE',`Admin deleted user ${target.name}`);
+  if(S.user&&S.user.id===id) S.user=null;
+  return{ok:true};
+}
+
+/* ─── RENDER ─── */
+function render(){
+  document.getElementById('app').innerHTML=S.user?renderApp():renderAuth();
+  bind();
+}
+
+function renderAuth(){
+  return`<div class="auth-wrap"><div class="auth-card">
+    <div class="logo-row">
+      <div class="logo-icon"><i class="ti ti-building" aria-hidden="true"></i></div>
+      <div><div class="logo-title">Conference Rooms</div><div class="logo-sub">Booking &amp; Scheduling System</div></div>
+    </div>
+    ${S.setupSQL?`<div class="alert info"><i class="ti ti-database"></i><div><strong>Database setup needed.</strong> Run this SQL in your <a href="https://supabase.com/dashboard/project/snbkicwuqimcaluaqdll/sql/new" target="_blank" style="color:inherit;font-weight:500">Supabase SQL Editor</a>:<br><br>
+<code style="font-size:10px;display:block;background:rgba(0,0,0,0.06);padding:8px;border-radius:6px;white-space:pre-wrap;margin-top:4px">CREATE TABLE IF NOT EXISTS conference_bookings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  date_today date,
+  request_date date,
+  time_from time,
+  time_to time,
+  conference_room text,
+  requested_by text,
+  status text DEFAULT 'approved',
+  created_at timestamptz DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS conf_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor text,
+  action text,
+  detail text,
+  created_at timestamptz DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS conf_users (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text UNIQUE NOT NULL,
+  password text NOT NULL,
+  is_admin boolean DEFAULT false,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE conference_bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conf_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conf_users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "open_bookings" ON conference_bookings FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open_logs" ON conf_logs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open_users" ON conf_users FOR ALL USING (true) WITH CHECK (true);
+INSERT INTO conf_users (name, password, is_admin) VALUES ('${ADMIN_NAME}', '${ADMIN_PASS}', true) ON CONFLICT (name) DO NOTHING;</code></div></div>`:''}
+    ${S.authErr?`<div class="alert err"><i class="ti ti-alert-circle"></i>${S.authErr}</div>`:''}
+    <p class="auth-desc">Sign in with the name and password your admin gave you. Don't have an account yet? Ask your admin to add you from the Manage Users page.</p>
+    <div class="field"><label>Your name</label><input id="a-name" type="text" placeholder="e.g. Maria Santos" autocomplete="username"></div>
+    <div class="field"><label>Password</label><input id="a-pass" type="password" placeholder="Your password" autocomplete="current-password"></div>
+    <button class="btn btn-primary" id="a-sub" ${S.authLoad?'disabled':''}>${S.authLoad?'Signing in…':'Sign in'}</button>
+    <div style="margin-top:1rem;font-size:12px;color:var(--color-text-secondary);text-align:center;line-height:1.6">
+      First time setting up? Default admin login is <strong>${ADMIN_NAME}</strong> / <strong>${ADMIN_PASS}</strong> — change it from Manage Users.
+    </div>
+  </div></div>`;
+}
+
+function renderApp(){
+  const selD=S.selDate||td();
+  const activeBks=S.bookings.filter(b=>b.status==='approved');
+  const todayBks=activeBks.filter(b=>b.request_date===td());
+  const dayBks=activeBks.filter(b=>b.request_date===selD);
+  const isBooked=(room,date)=>activeBks.some(b=>b.conference_room===room&&b.request_date===date);
+  const smBusy=isBooked('Small Conference Room',selD);
+  const bgBusy=isBooked('Big Conference Room',selD);
+
+  const navItems=[
+    {pg:'dashboard',ic:'ti-layout-dashboard',lb:'Dashboard'},
+    {pg:'book',ic:'ti-calendar-plus',lb:'Book a Room'},
+    {pg:'schedule',ic:'ti-calendar-event',lb:'Full Schedule'},
+    ...(S.user.isAdmin?[
+      {pg:'users',ic:'ti-users-group',lb:'Manage Users',admin:true},
+      {pg:'logs',ic:'ti-list-details',lb:'Activity Logs',admin:true}
+    ]:[])
+  ];
+
+  const modalH=S.modal?renderModal():'';
+  const editH=S.editBk?renderEditBookingModal():'';
+  const userModalH=S.userModal?renderUserModal():'';
+
+  return`${modalH}${editH}${userModalH}<div class="shell">
+    <aside class="sidebar">
+      <div class="sb-top"><div class="sb-logo">
+        <div class="sb-icon"><i class="ti ti-building" aria-hidden="true"></i></div>
+        <div class="sb-name">Conf Rooms</div>
+      </div></div>
+      <nav class="sb-nav">
+        <div class="nav-section">Menu</div>
+        ${navItems.map(n=>`<div class="nav-item ${S.page===n.pg?'active':''}" data-pg="${n.pg}">
+          <i class="ti ${n.ic}" aria-hidden="true"></i>${n.lb}${n.admin?`<span class="admin-badge">Admin</span>`:''}
+        </div>`).join('')}
+      </nav>
+      <div class="sb-footer"><div class="user-row">
+        <div class="avatar ${S.user.isAdmin?'admin':'user'}">${ini(S.user.name)}</div>
+        <div class="user-info">
+          <div class="user-nm">${S.user.name}</div>
+          <div class="user-role">${S.user.isAdmin?'Administrator':'Staff'}</div>
+        </div>
+        <button class="icon-btn" id="logout" title="Sign out" aria-label="Sign out"><i class="ti ti-logout"></i></button>
+      </div></div>
+    </aside>
+    <main class="main">
+      ${S.page==='dashboard'?renderDash(selD,dayBks,activeBks,todayBks,smBusy,bgBusy,isBooked):''}
+      ${S.page==='book'?renderBookPage():''}
+      ${S.page==='schedule'?renderSchedule(activeBks):''}
+      ${S.page==='users'&&S.user.isAdmin?renderUsers():''}
+      ${S.page==='logs'?renderLogs():''}
+    </main>
+  </div>`;
+}
+
+function renderDash(selD,dayBks,activeBks,todayBks,smBusy,bgBusy,isBooked){
+  const calDays=days16();
+  return`
+  <div class="ph">
+    <div><div class="ptitle">Dashboard</div><div class="psub">${new Date().toLocaleDateString('en-PH',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div></div>
+    <button class="btn btn-primary btn-sm" id="open-modal"><i class="ti ti-plus" style="vertical-align:-2px" aria-hidden="true"></i> Book a room</button>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="slabel">Active bookings</div><div class="sval blue">${activeBks.length}</div></div>
+    <div class="stat-card"><div class="slabel">Bookings today</div><div class="sval amber">${todayBks.length}</div></div>
+    <div class="stat-card"><div class="slabel">Small room today</div><div class="sval ${isBooked('Small Conference Room',td())?'red':'green'}">${isBooked('Small Conference Room',td())?'Occupied':'Available'}</div></div>
+    <div class="stat-card"><div class="slabel">Big room today</div><div class="sval ${isBooked('Big Conference Room',td())?'red':'green'}">${isBooked('Big Conference Room',td())?'Occupied':'Available'}</div></div>
+  </div>
+  <div class="rooms-row">
+    ${[['Small Conference Room','sm','ti-users','Up to 8 people',smBusy],['Big Conference Room','bg','ti-building-community','Up to 30 people',bgBusy]].map(([nm,cls,ic,cap,busy])=>{
+      const det=busy?dayBks.find(b=>b.conference_room===nm):null;
+      return`<div class="room-card ${busy?'busy':'free'}">
+        <div class="rc-head">
+          <div class="rc-icon ${cls}"><i class="ti ${ic}" aria-hidden="true"></i></div>
+          <div><div class="rc-name">${nm}</div><div class="rc-cap">${cap}</div></div>
+          <span class="rc-badge ${busy?'busy':'free'}">${busy?'Occupied':'Available'}</span>
+        </div>
+        <div class="rc-detail">
+          <div>Viewing: <strong>${fmt(selD)}</strong></div>
+          ${busy&&det?`<div>Booked by: <strong>${det.requested_by}</strong></div><div>${fmtT(det.time_from)} – ${fmtT(det.time_to)}</div>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div>
+    <div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">Date availability — <span style="color:#E24B4A">red border = booked</span></div>
+    <div class="cal-row">
+      ${calDays.map(d=>{const dstr=ds(d);const hasbk=activeBks.some(b=>b.request_date===dstr);
+        return`<div class="cday ${dstr===selD?'sel':''} ${hasbk&&dstr!==selD?'hasbk':''}" data-d="${dstr}">
+          <div class="dn">${DAYS[d.getDay()]}</div>
+          <div class="dd">${d.getDate()}</div>
+          ${hasbk?`<div class="dot"></div>`:`<div style="height:5px"></div>`}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+  <div class="tw">
+    <div class="tw-head"><div class="tw-title">Bookings for ${fmt(selD)}</div></div>
+    ${dayBks.length===0
+      ?`<div class="empty-st"><i class="ti ti-calendar-off"></i>No bookings for this date</div>`
+      :`<table><thead><tr><th>Room</th><th>Time</th><th>Requested by</th><th>Date filed</th>${S.user.isAdmin?'<th></th>':''}</tr></thead><tbody>
+      ${dayBks.map(b=>`<tr>
+        <td><span class="badge ${b.conference_room==='Small Conference Room'?'sm-r':'bg-r'}">${b.conference_room==='Small Conference Room'?'Small':'Big'} Room</span></td>
+        <td>${fmtT(b.time_from)} – ${fmtT(b.time_to)}</td>
+        <td>${b.requested_by}</td>
+        <td>${fmt(b.date_today)}</td>
+        ${S.user.isAdmin?`<td><div class="row-actions"><button class="btn-edit-sm" data-edit="${b.id}" title="Edit booking">Edit</button><button class="btn-danger-sm" data-del="${b.id}" title="Delete booking">Delete</button></div></td>`:''}
+      </tr>`).join('')}
+      </tbody></table>`}
+  </div>`;
+}
+
+function renderBookPage(){
+  return`
+  <div class="ph"><div><div class="ptitle">Book a room</div><div class="psub">Fill in the details below to reserve a conference room.</div></div></div>
+  <div class="form-card">
+    ${S.formAlert?`<div class="alert ${S.formAlert.t}"><i class="ti ti-${S.formAlert.t==='err'?'alert-circle':'circle-check'}"></i>${S.formAlert.m}</div>`:''}
+    ${S.user.isAdmin
+      ?`<div class="field"><label>Requested by</label><select id="f-reqby">${S.users.map(u=>`<option value="${u.name}" ${u.name===S.user.name?'selected':''}>${u.name}</option>`).join('')}</select></div>`
+      :`<div class="field"><label>Requested by</label><input type="text" value="${S.user.name}" disabled></div>`}
+    <div class="field"><label>Date filed (today)</label><input type="text" value="${fmt(td())}" disabled></div>
+    <div class="field"><label>Request date</label><input type="date" id="f-date" min="${td()}"></div>
+    <div class="two-col">
+      <div class="field"><label>Time from</label><input type="time" id="f-from"></div>
+      <div class="field"><label>Time to</label><input type="time" id="f-to"></div>
+    </div>
+    <div class="field"><label>Conference room</label>
+      <select id="f-room">
+        <option value="">Select a room…</option>
+        <option value="Small Conference Room">Small Conference Room (up to 8 pax)</option>
+        <option value="Big Conference Room">Big Conference Room (up to 30 pax)</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="f-submit">Confirm booking</button>
+  </div>`;
+}
+
+function renderSchedule(activeBks){
+  const sorted=[...activeBks].sort((a,b)=>a.request_date>b.request_date?1:-1);
+  return`
+  <div class="ph"><div><div class="ptitle">Full schedule</div><div class="psub">All confirmed bookings across both rooms.</div></div></div>
+  <div class="tw">
+    <div class="tw-head"><div class="tw-title">${sorted.length} active booking${sorted.length!==1?'s':''}</div></div>
+    ${sorted.length===0
+      ?`<div class="empty-st"><i class="ti ti-calendar"></i>No bookings yet</div>`
+      :`<table><thead><tr><th>Room</th><th>Request date</th><th>Time</th><th>Requested by</th><th>Date filed</th>${S.user.isAdmin?'<th></th>':''}</tr></thead><tbody>
+      ${sorted.map(b=>`<tr>
+        <td><span class="badge ${b.conference_room==='Small Conference Room'?'sm-r':'bg-r'}">${b.conference_room==='Small Conference Room'?'Small':'Big'} Room</span></td>
+        <td>${fmt(b.request_date)}</td>
+        <td>${fmtT(b.time_from)} – ${fmtT(b.time_to)}</td>
+        <td>${b.requested_by}</td>
+        <td>${fmt(b.date_today)}</td>
+        ${S.user.isAdmin?`<td><div class="row-actions"><button class="btn-edit-sm" data-edit="${b.id}">Edit</button><button class="btn-danger-sm" data-del="${b.id}">Delete</button></div></td>`:''}
+      </tr>`).join('')}
+      </tbody></table>`}
+  </div>`;
+}
+
+function renderLogs(){
+  return`
+  <div class="ph"><div><div class="ptitle">Activity logs</div><div class="psub">All system actions — sign-ins, bookings, deletions.</div></div></div>
+  <div class="tw">
+    <div class="tw-head"><div class="tw-title">${S.logs.length} log entries</div></div>
+    ${S.logs.length===0
+      ?`<div class="empty-st"><i class="ti ti-list-details"></i>No logs yet</div>`
+      :`<table><thead><tr><th>When</th><th>Type</th><th>User</th><th>Detail</th></tr></thead><tbody>
+      ${S.logs.map(l=>{
+        const tag=l.action==='LOGIN'?'login':l.action==='DELETE'?'del':l.action==='EDIT'?'edit':l.action.startsWith('USER_')?'usr':'book';
+        return`<tr>
+          <td style="white-space:nowrap;color:var(--color-text-secondary)">${fmtDT(l.created_at)}</td>
+          <td><span class="log-tag ${tag}">${l.action}</span></td>
+          <td>${l.actor}</td>
+          <td style="color:var(--color-text-secondary)">${l.detail}</td>
+        </tr>`;
+      }).join('')}
+      </tbody></table>`}
+  </div>`;
+}
+
+function renderUsers(){
+  return`
+  <div class="ph">
+    <div><div class="ptitle">Manage users</div><div class="psub">Add, edit, or remove people who can sign in and book rooms.</div></div>
+    <button class="btn btn-primary btn-sm" id="open-user-modal"><i class="ti ti-user-plus" style="vertical-align:-2px" aria-hidden="true"></i> Add user</button>
+  </div>
+  <div class="tw">
+    <div class="tw-head"><div class="tw-title">${S.users.length} user${S.users.length!==1?'s':''}</div></div>
+    ${S.users.length===0
+      ?`<div class="empty-st"><i class="ti ti-users"></i>No users yet</div>`
+      :`<table><thead><tr><th>Name</th><th>Role</th><th>Added</th><th></th></tr></thead><tbody>
+      ${S.users.map(u=>`<tr>
+        <td>${u.name}${u.id===S.user.id?' <span style="color:var(--color-text-secondary);font-size:11px">(you)</span>':''}</td>
+        <td><span class="role-pill ${u.is_admin?'adm':'stf'}">${u.is_admin?'Admin':'Staff'}</span></td>
+        <td style="color:var(--color-text-secondary)">${fmt((u.created_at||'').split('T')[0])}</td>
+        <td><div class="row-actions"><button class="btn-edit-sm" data-useredit="${u.id}">Edit</button><button class="btn-danger-sm" data-userdel="${u.id}">Delete</button></div></td>
+      </tr>`).join('')}
+      </tbody></table>`}
+  </div>`;
+}
+
+function renderUserModal(){
+  const editing=S.userModal&&S.userModal.id;
+  const u=S.userModal||{};
+  return`<div class="overlay" id="u-overlay">
+    <div class="modal">
+      <div class="mh"><div class="mh-title">${editing?'Edit user':'Add user'}</div><button class="icon-btn" id="u-close"><i class="ti ti-x"></i></button></div>
+      <div class="mb">
+        ${S.userFormAlert?`<div class="alert ${S.userFormAlert.t}"><i class="ti ti-${S.userFormAlert.t==='err'?'alert-circle':'circle-check'}"></i>${S.userFormAlert.m}</div>`:''}
+        <div class="field"><label>Name</label><input type="text" id="u-name" value="${u.name||''}" placeholder="e.g. Maria Santos"></div>
+        <div class="field"><label>Password</label><input type="text" id="u-pass" placeholder="${editing?'Leave blank to keep current password':'Set a password'}">
+          ${editing?`<div class="hint">Leave blank to keep their current password.</div>`:''}
+        </div>
+        <div class="checkbox-row"><input type="checkbox" id="u-admin" ${u.is_admin?'checked':''}><label for="u-admin">Grant admin access</label></div>
+      </div>
+      <div class="mf">
+        <button class="btn btn-ghost" id="u-cancel">Cancel</button>
+        <button class="btn btn-primary" id="u-submit">${editing?'Save changes':'Add user'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderEditBookingModal(){
+  const b=S.editBk;
+  return`<div class="overlay" id="e-overlay">
+    <div class="modal">
+      <div class="mh"><div class="mh-title">Edit booking</div><button class="icon-btn" id="e-close"><i class="ti ti-x"></i></button></div>
+      <div class="mb">
+        ${S.formAlert?`<div class="alert ${S.formAlert.t}"><i class="ti ti-${S.formAlert.t==='err'?'alert-circle':'circle-check'}"></i>${S.formAlert.m}</div>`:''}
+        <div class="field"><label>Requested by</label>
+          <select id="e-reqby">${S.users.map(u=>`<option value="${u.name}" ${u.name===b.requested_by?'selected':''}>${u.name}</option>`).join('')}
+          ${S.users.some(u=>u.name===b.requested_by)?'':`<option value="${b.requested_by}" selected>${b.requested_by}</option>`}</select>
+        </div>
+        <div class="field"><label>Request date</label><input type="date" id="e-date" value="${b.request_date}"></div>
+        <div class="two-col">
+          <div class="field"><label>Time from</label><input type="time" id="e-from" value="${b.time_from}"></div>
+          <div class="field"><label>Time to</label><input type="time" id="e-to" value="${b.time_to}"></div>
+        </div>
+        <div class="field"><label>Conference room</label>
+          <select id="e-room">
+            <option value="Small Conference Room" ${b.conference_room==='Small Conference Room'?'selected':''}>Small Conference Room (up to 8 pax)</option>
+            <option value="Big Conference Room" ${b.conference_room==='Big Conference Room'?'selected':''}>Big Conference Room (up to 30 pax)</option>
+          </select>
+        </div>
+      </div>
+      <div class="mf">
+        <button class="btn btn-ghost" id="e-cancel">Cancel</button>
+        <button class="btn btn-primary" id="e-submit">Save changes</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderModal(){
+  const selD=S.selDate||td();
+  return`<div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="mh"><div class="mh-title">Book a conference room</div><button class="icon-btn" id="m-close"><i class="ti ti-x"></i></button></div>
+      <div class="mb">
+        ${S.formAlert?`<div class="alert ${S.formAlert.t}"><i class="ti ti-${S.formAlert.t==='err'?'alert-circle':'circle-check'}"></i>${S.formAlert.m}</div>`:''}
+        ${S.user.isAdmin
+          ?`<div class="field"><label>Requested by</label><select id="m-reqby">${S.users.map(u=>`<option value="${u.name}" ${u.name===S.user.name?'selected':''}>${u.name}</option>`).join('')}</select></div>`
+          :`<div class="field"><label>Requested by</label><input type="text" value="${S.user.name}" disabled></div>`}
+        <div class="field"><label>Date filed (today)</label><input type="text" value="${fmt(td())}" disabled></div>
+        <div class="field"><label>Request date</label><input type="date" id="m-date" min="${td()}" value="${selD}"></div>
+        <div class="two-col">
+          <div class="field"><label>Time from</label><input type="time" id="m-from"></div>
+          <div class="field"><label>Time to</label><input type="time" id="m-to"></div>
+        </div>
+        <div class="field"><label>Conference room</label>
+          <select id="m-room">
+            <option value="">Select a room…</option>
+            <option value="Small Conference Room">Small Conference Room (up to 8 pax)</option>
+            <option value="Big Conference Room">Big Conference Room (up to 30 pax)</option>
+          </select>
+        </div>
+      </div>
+      <div class="mf">
+        <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+        <button class="btn btn-primary" id="m-submit">Confirm booking</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ─── BIND ─── */
+function bind(){
+  const q=id=>document.getElementById(id);
+
+  /* Auth */
+  const asub=q('a-sub');
+  if(asub)asub.onclick=async()=>{
+    const name=q('a-name')?.value||'';
+    const pass=q('a-pass')?.value||'';
+    S.authLoad=true;S.authErr='';render();
+    const r=await doLogin(name,pass);
+    S.authLoad=false;
+    if(r.error){S.authErr=r.error;render();}
+    else{S.page='dashboard';S.selDate=td();render();}
+  };
+  const ap=q('a-pass');if(ap)ap.onkeydown=e=>{if(e.key==='Enter')asub?.click();};
+  const an=q('a-name');if(an)an.onkeydown=e=>{if(e.key==='Enter')q('a-pass')?.focus();};
+
+  /* Nav */
+  document.querySelectorAll('[data-pg]').forEach(el=>{
+    el.onclick=()=>{S.page=el.dataset.pg;S.formAlert=null;render();};
+  });
+
+  /* Calendar */
+  document.querySelectorAll('.cday').forEach(el=>{
+    el.onclick=()=>{S.selDate=el.dataset.d;render();};
+  });
+
+  /* Logout */
+  const lo=q('logout');if(lo)lo.onclick=()=>{S.user=null;S.formAlert=null;S.authErr='';render();};
+
+  /* Open modal */
+  const om=q('open-modal');if(om)om.onclick=()=>{S.modal=true;S.formAlert=null;render();};
+
+  /* Modal close */
+  const mc=q('m-close');if(mc)mc.onclick=()=>{S.modal=false;S.formAlert=null;render();};
+  const mcc=q('m-cancel');if(mcc)mcc.onclick=()=>{S.modal=false;S.formAlert=null;render();};
+  const ov=q('overlay');if(ov)ov.onclick=e=>{if(e.target===ov){S.modal=false;S.formAlert=null;render();}};
+
+  /* Modal submit */
+  const ms=q('m-submit');
+  if(ms)ms.onclick=async()=>{
+    const rd=q('m-date')?.value,tf=q('m-from')?.value,tt=q('m-to')?.value,rm=q('m-room')?.value;
+    const rb=S.user.isAdmin?(q('m-reqby')?.value||S.user.name):S.user.name;
+    if(!rd||!tf||!tt||!rm){S.formAlert={t:'err',m:'Please fill in all fields.'};render();return;}
+    if(tf>=tt){S.formAlert={t:'err',m:'End time must be after start time.'};render();return;}
+    ms.disabled=true;ms.textContent='Saving…';
+    const r=await doBook({request_date:rd,time_from:tf,time_to:tt,conference_room:rm,requested_by:rb});
+    if(r.error){S.formAlert={t:'err',m:r.error};render();}
+    else{S.modal=false;S.selDate=rd;S.formAlert=null;render();}
+  };
+
+  /* Page form submit */
+  const fs=q('f-submit');
+  if(fs)fs.onclick=async()=>{
+    const rd=q('f-date')?.value,tf=q('f-from')?.value,tt=q('f-to')?.value,rm=q('f-room')?.value;
+    const rb=S.user.isAdmin?(q('f-reqby')?.value||S.user.name):S.user.name;
+    if(!rd||!tf||!tt||!rm){S.formAlert={t:'err',m:'Please fill in all fields.'};render();return;}
+    if(tf>=tt){S.formAlert={t:'err',m:'End time must be after start time.'};render();return;}
+    fs.disabled=true;fs.textContent='Saving…';
+    const r=await doBook({request_date:rd,time_from:tf,time_to:tt,conference_room:rm,requested_by:rb});
+    if(r.error){S.formAlert={t:'err',m:r.error};render();}
+    else{S.selDate=rd;S.page='dashboard';S.formAlert={t:'ok',m:'Room booked successfully!'};render();}
+  };
+
+  /* Delete booking (admin only) */
+  document.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.onclick=async()=>{
+      if(!S.user.isAdmin) return;
+      if(!confirm('Permanently delete this booking?')) return;
+      btn.disabled=true;btn.textContent='Deleting…';
+      await doDelete(btn.dataset.del);
+      render();
+    };
+  });
+
+  /* Edit booking (admin only) */
+  document.querySelectorAll('[data-edit]').forEach(btn=>{
+    btn.onclick=()=>{
+      if(!S.user.isAdmin) return;
+      const bk=S.bookings.find(b=>b.id===btn.dataset.edit);
+      if(bk){S.editBk=bk;S.formAlert=null;render();}
+    };
+  });
+  const ec=q('e-close');if(ec)ec.onclick=()=>{S.editBk=null;S.formAlert=null;render();};
+  const ecc=q('e-cancel');if(ecc)ecc.onclick=()=>{S.editBk=null;S.formAlert=null;render();};
+  const eov=q('e-overlay');if(eov)eov.onclick=e=>{if(e.target===eov){S.editBk=null;S.formAlert=null;render();}};
+  const esub=q('e-submit');
+  if(esub)esub.onclick=async()=>{
+    const rb=q('e-reqby')?.value,rd=q('e-date')?.value,tf=q('e-from')?.value,tt=q('e-to')?.value,rm=q('e-room')?.value;
+    if(!rb||!rd||!tf||!tt||!rm){S.formAlert={t:'err',m:'Please fill in all fields.'};render();return;}
+    if(tf>=tt){S.formAlert={t:'err',m:'End time must be after start time.'};render();return;}
+    esub.disabled=true;esub.textContent='Saving…';
+    const r=await doEditBooking(S.editBk.id,{requested_by:rb,request_date:rd,time_from:tf,time_to:tt,conference_room:rm});
+    if(r.error){S.formAlert={t:'err',m:r.error};render();}
+    else{S.editBk=null;S.selDate=rd;S.formAlert=null;render();}
+  };
+
+  /* Open add-user modal (admin only) */
+  const oum=q('open-user-modal');if(oum)oum.onclick=()=>{S.userModal={};S.userFormAlert=null;render();};
+
+  /* User modal close */
+  const uc=q('u-close');if(uc)uc.onclick=()=>{S.userModal=null;S.userFormAlert=null;render();};
+  const ucc=q('u-cancel');if(ucc)ucc.onclick=()=>{S.userModal=null;S.userFormAlert=null;render();};
+  const uov=q('u-overlay');if(uov)uov.onclick=e=>{if(e.target===uov){S.userModal=null;S.userFormAlert=null;render();}};
+
+  /* User modal submit (add or edit) */
+  const usub=q('u-submit');
+  if(usub)usub.onclick=async()=>{
+    const name=q('u-name')?.value||'',pass=q('u-pass')?.value||'',isAdm=q('u-admin')?.checked||false;
+    if(!name.trim()){S.userFormAlert={t:'err',m:'Name is required.'};render();return;}
+    const editing=S.userModal&&S.userModal.id;
+    if(!editing&&!pass.trim()){S.userFormAlert={t:'err',m:'Password is required for new users.'};render();return;}
+    usub.disabled=true;usub.textContent='Saving…';
+    const r=editing
+      ?await doEditUser(S.userModal.id,{name,password:pass,is_admin:isAdm})
+      :await doAddUser({name,password:pass,is_admin:isAdm});
+    if(r.error){S.userFormAlert={t:'err',m:r.error};render();}
+    else{S.userModal=null;S.userFormAlert=null;render();}
+  };
+
+  /* Edit user (admin only) */
+  document.querySelectorAll('[data-useredit]').forEach(btn=>{
+    btn.onclick=()=>{
+      const u=S.users.find(x=>x.id===btn.dataset.useredit);
+      if(u){S.userModal=u;S.userFormAlert=null;render();}
+    };
+  });
+
+  /* Delete user (admin only) */
+  document.querySelectorAll('[data-userdel]').forEach(btn=>{
+    btn.onclick=async()=>{
+      const u=S.users.find(x=>x.id===btn.dataset.userdel);
+      if(!u) return;
+      if(!confirm(`Permanently delete user "${u.name}"? They will no longer be able to sign in.`)) return;
+      btn.disabled=true;btn.textContent='Deleting…';
+      const r=await doDeleteUser(btn.dataset.userdel);
+      if(r.error){alert(r.error);}
+      render();
+    };
+  });
+}
+
+/* ─── INIT ─── */
+async function init(){
+  const ok=await checkDB();
+  if(ok){
+    S.dbReady=true;
+    /* pre-load data so auth page shows correctly */
+  }
+  render();
+}
+
+window.addEventListener('load',()=>{init();});
+init();
+</script>
+</body>
+</html>
