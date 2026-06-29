@@ -576,6 +576,16 @@ function RoomSchedule({ rooms, toast, isAdmin }) {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [date]);
 
+  // ─── REALTIME: auto-reload schedule when any reservation changes ───
+  useEffect(() => {
+    const channel = supabase
+      .channel('room-schedule-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => { load(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    /* eslint-disable-next-line */
+  }, [date]);
+
   const shiftDate = days => {
     const d = new Date(date + 'T00:00:00');
     d.setDate(d.getDate() + days);
@@ -613,6 +623,7 @@ function RoomSchedule({ rooms, toast, isAdmin }) {
           <span className="sched-legend-item"><span className="sched-dot" style={{background:'var(--danger)'}} /> Approved / Occupied</span>
           <span className="sched-legend-item"><span className="sched-dot" style={{background:'var(--warning)'}} /> Pending</span>
           <button className="btn btn-sm" onClick={load} style={{marginLeft:'auto'}}>↻ Refresh</button>
+          <span style={{fontSize:10,fontWeight:700,background:'#ecfdf5',color:'#059669',border:'1px solid #6ee7b7',borderRadius:20,padding:'2px 8px'}}>● LIVE</span>
         </div>
       </div>
 
@@ -900,6 +911,15 @@ function MyReservations({ currentUser, toast, rooms }) {
 
   useEffect(() => { load(); }, []);
 
+  // ─── REALTIME: auto-reload when my reservations change (e.g. admin approves) ───
+  useEffect(() => {
+    const channel = supabase
+      .channel('my-reservations-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => { load(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const cancel = async (res) => {
     if (!confirm('Cancel this reservation?')) return;
     try {
@@ -918,7 +938,7 @@ function MyReservations({ currentUser, toast, rooms }) {
   return (
     <div className="table-card">
       <div className="table-card-header">
-        <span className="table-card-title">My Reservations</span>
+        <span className="table-card-title">My Reservations <span style={{fontSize:10,fontWeight:700,background:'#ecfdf5',color:'#059669',border:'1px solid #6ee7b7',borderRadius:20,padding:'2px 8px',marginLeft:6,verticalAlign:'middle'}}>● LIVE</span></span>
         <button className="btn btn-sm" onClick={load}>↻ Refresh</button>
       </div>
       {loading ? (
@@ -971,6 +991,15 @@ function AdminPanel({ toast }) {
 
   useEffect(() => { load(); }, []);
 
+  // ─── REALTIME: auto-reload admin panel when any reservation changes ───
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-panel-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => { load(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const updateStatus = async (res, status) => {
     const action = status === 'approved' ? 'approve' : 'decline';
     if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} this reservation?`)) return;
@@ -1013,7 +1042,7 @@ function AdminPanel({ toast }) {
 
       <div className="table-card">
         <div className="table-card-header">
-          <span className="table-card-title">All Reservation Requests</span>
+          <span className="table-card-title">All Reservation Requests <span style={{fontSize:10,fontWeight:700,background:'#ecfdf5',color:'#059669',border:'1px solid #6ee7b7',borderRadius:20,padding:'2px 8px',marginLeft:6,verticalAlign:'middle'}}>● LIVE</span></span>
           <div style={{display:'flex',gap:'.5rem',alignItems:'center'}}>
             <select className="form-input" style={{height:32,fontSize:12,padding:'0 8px'}} value={filter} onChange={e => setFilter(e.target.value)}>
               <option value="all">All Statuses</option>
@@ -1195,7 +1224,7 @@ function App() {
           <div className="content-area">
             {activeTab === 'book' && (
               <BookingForm key={refreshKey} currentUser={currentUser} rooms={rooms} toast={toast}
-                onBooked={() => { setRefreshKey(k => k+1); }} />
+                onBooked={() => { setRefreshKey(k => k+1); setActiveTab('my'); }} />
             )}
             {activeTab === 'schedule' && <RoomSchedule key={'sched'+refreshKey} rooms={rooms} toast={toast} isAdmin={isAdmin} />}
             {activeTab === 'my' && <MyReservations key={refreshKey} currentUser={currentUser} toast={toast} rooms={rooms} />}
