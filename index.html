@@ -564,7 +564,7 @@ function RoomSchedule({ rooms, toast, isAdmin }) {
   const [loading, setLoading] = useState(true);
   const [activeSlot, setActiveSlot] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.from('reservations').select('*').eq('date', date).in('status', ['pending', 'approved']);
@@ -572,9 +572,9 @@ function RoomSchedule({ rooms, toast, isAdmin }) {
       setReservations(data || []);
     } catch (e) { toast(e.message || 'Failed to load schedule.', 'error'); }
     setLoading(false);
-  };
+  }, [date]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [date]);
+  useEffect(() => { load(); }, [load]);
 
   // ─── REALTIME: auto-reload schedule when any reservation changes ───
   useEffect(() => {
@@ -583,8 +583,7 @@ function RoomSchedule({ rooms, toast, isAdmin }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => { load(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-    /* eslint-disable-next-line */
-  }, [date]);
+  }, [load]);
 
   const shiftDate = days => {
     const d = new Date(date + 'T00:00:00');
@@ -900,16 +899,16 @@ function MyReservations({ currentUser, toast, rooms }) {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await supabase.from('reservations').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
       setReservations(data || []);
     } catch (e) { toast('Failed to load reservations.', 'error'); }
     setLoading(false);
-  };
+  }, [currentUser.id]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   // ─── REALTIME: auto-reload when my reservations change (e.g. admin approves) ───
   useEffect(() => {
@@ -918,7 +917,7 @@ function MyReservations({ currentUser, toast, rooms }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => { load(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [load]);
 
   const cancel = async (res) => {
     if (!confirm('Cancel this reservation?')) return;
@@ -980,16 +979,16 @@ function AdminPanel({ toast }) {
   const [filter, setFilter] = useState('all');
   const [emailModal, setEmailModal] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await supabase.from('reservations').select('*').order('created_at', { ascending: false });
       setReservations(data || []);
     } catch (e) { toast('Failed to load.', 'error'); }
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   // ─── REALTIME: auto-reload admin panel when any reservation changes ───
   useEffect(() => {
@@ -998,7 +997,7 @@ function AdminPanel({ toast }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => { load(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [load]);
 
   const updateStatus = async (res, status) => {
     const action = status === 'approved' ? 'approve' : 'decline';
