@@ -343,9 +343,9 @@ function RegisterScreen({ onBack, onSuccess, toast }) {
       <p className="auth-form-sub">Fill in your details to get started</p>
       {error && <div className="msg-box msg-error">{error}</div>}
       <div className="field"><label>Full Name</label><input value={form.fullName} onChange={set('fullName')} placeholder="Your full name" /></div>
-      <div className="field"><label>Email Address</label><input type="email" value={form.email} onChange={set('email')} placeholder="you@company.com" /></div>
-      <div className="field"><label>Password</label><input type="password" value={form.password} onChange={set('password')} placeholder="Min 8 chars, uppercase, number, symbol" /></div>
-      <div className="field"><label>Confirm Password</label><input type="password" value={form.confirmPw} onChange={set('confirmPw')} placeholder="Repeat password" /></div>
+      <div className="field"><label>Email Address</label><input type="email" value={form.email} onChange={set('email')} placeholder="you@company.com" autoComplete="off" data-lpignore="true" data-1p-ignore="true" /></div>
+      <div className="field"><label>Password</label><input type="password" value={form.password} onChange={set('password')} placeholder="Min 8 chars, uppercase, number, symbol" autoComplete="off" data-lpignore="true" data-1p-ignore="true" /></div>
+      <div className="field"><label>Confirm Password</label><input type="password" value={form.confirmPw} onChange={set('confirmPw')} placeholder="Repeat password" autoComplete="off" data-lpignore="true" data-1p-ignore="true" /></div>
       <div className="field">
         <label>Security Question</label>
         <select className="form-input" value={form.secretQuestion} onChange={set('secretQuestion')} style={{height:42,fontFamily:'inherit'}}>
@@ -413,9 +413,9 @@ function ForgotPasswordScreen({ onBack, toast }) {
       <h2 className="auth-form-title">Reset Password</h2>
       <p className="auth-form-sub">Step {step} of 3 – {step===1?'Verify your email':step===2?'Answer your security question':'Set new password'}</p>
       {error && <div className="msg-box msg-error">{error}</div>}
-      {step === 1 && (<><div className="field"><label>Email Address</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" /></div><button className="btn-primary" onClick={step1} disabled={loading}>{loading ? <span className="spinner" style={{borderTopColor:'#fff'}} /> : 'Find Account'}</button></>)}
+      {step === 1 && (<><div className="field"><label>Email Address</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoComplete="off" data-lpignore="true" data-1p-ignore="true" /></div><button className="btn-primary" onClick={step1} disabled={loading}>{loading ? <span className="spinner" style={{borderTopColor:'#fff'}} /> : 'Find Account'}</button></>)}
       {step === 2 && foundUser && (<><div className="sq-card"><div className="sq-label">Your security question</div><div className="sq-q">{foundUser.secret_question}</div></div><div className="field"><label>Your Answer</label><input value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Case-insensitive" onKeyDown={e => e.key==='Enter' && step2()} /></div><button className="btn-primary" onClick={step2}>Verify Answer</button></>)}
-      {step === 3 && (<><div className="msg-box msg-info">✓ Identity verified. Set your new password below.</div><div className="field"><label>New Password</label><input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Min 8 chars, uppercase, number, symbol" /></div><div className="field"><label>Confirm New Password</label><input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="Repeat new password" /></div><button className="btn-primary" onClick={step3} disabled={loading}>{loading ? <span className="spinner" style={{borderTopColor:'#fff'}} /> : 'Update Password'}</button></>)}
+      {step === 3 && (<><div className="msg-box msg-info">✓ Identity verified. Set your new password below.</div><div className="field"><label>New Password</label><input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Min 8 chars, uppercase, number, symbol" autoComplete="off" data-lpignore="true" data-1p-ignore="true" /></div><div className="field"><label>Confirm New Password</label><input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="Repeat new password" autoComplete="off" data-lpignore="true" data-1p-ignore="true" /></div><button className="btn-primary" onClick={step3} disabled={loading}>{loading ? <span className="spinner" style={{borderTopColor:'#fff'}} /> : 'Update Password'}</button></>)}
       <div className="divider-line">or</div>
       <button className="link-btn" style={{display:'block',textAlign:'center',width:'100%'}} onClick={onBack}>Back to Sign In</button>
     </div>
@@ -423,31 +423,96 @@ function ForgotPasswordScreen({ onBack, toast }) {
 }
 
 // ─── LOGIN SCREEN ───
+// Key used to lock the system to a single signed-in user at a time.
+const SESSION_LOCK_KEY = 'crrs_active_session_lock';
+// A stale lock (e.g. left behind by a crashed tab/browser) auto-expires after this long.
+const SESSION_LOCK_MAX_AGE_MS = 8 * 60 * 60 * 1000; // 8 hours
+
+// Wipes any credential/session data that should never persist in browser storage.
+function clearStoredCredentials() {
+  try {
+    // Legacy keys from the old "remember me" auto-fill feature — always removed.
+    localStorage.removeItem('crrs_saved_email');
+    localStorage.removeItem('crrs_saved_pw');
+    sessionStorage.removeItem('crrs_saved_email');
+    sessionStorage.removeItem('crrs_saved_pw');
+  } catch (e) {}
+}
+
+function getActiveSessionLock() {
+  try {
+    const raw = localStorage.getItem(SESSION_LOCK_KEY);
+    if (!raw) return null;
+    const lock = JSON.parse(raw);
+    if (!lock?.loginAt || Date.now() - lock.loginAt > SESSION_LOCK_MAX_AGE_MS) {
+      localStorage.removeItem(SESSION_LOCK_KEY);
+      return null;
+    }
+    return lock;
+  } catch (e) { return null; }
+}
+
+function setActiveSessionLock(user) {
+  try {
+    localStorage.setItem(SESSION_LOCK_KEY, JSON.stringify({
+      email: user.email, fullName: user.fullName, loginAt: Date.now()
+    }));
+  } catch (e) {}
+}
+
+function clearActiveSessionLock() {
+  try { localStorage.removeItem(SESSION_LOCK_KEY); } catch (e) {}
+}
+
 function LoginScreen({ onLogin, toast }) {
   const [screen, setScreen] = useState('login');
-  const [email, setEmail] = useState(() => { try { return localStorage.getItem('crrs_saved_email') || ''; } catch(e) { return ''; } });
-  const [password, setPassword] = useState(() => { try { return localStorage.getItem('crrs_saved_pw') || ''; } catch(e) { return ''; } });
-  const [rememberMe, setRememberMe] = useState(() => { try { return !!localStorage.getItem('crrs_saved_email'); } catch(e) { return false; } });
+  // Fields always start blank — no credentials are ever auto-filled from storage.
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [lockedBy, setLockedBy] = useState(() => getActiveSessionLock());
+
+  // Clear any leftover credential data the moment the login screen mounts.
+  useEffect(() => {
+    clearStoredCredentials();
+    setLockedBy(getActiveSessionLock());
+  }, []);
 
   const login = async () => {
     setError('');
     if (!email.trim() || !password) return setError('Email and password are required.');
+
+    // Enforce single-user access: block sign-in while another user's session is active.
+    const activeLock = getActiveSessionLock();
+    if (activeLock && activeLock.email.toLowerCase() !== email.trim().toLowerCase()) {
+      setLockedBy(activeLock);
+      setError(`Only one user may use this system at a time. It is currently signed in as ${activeLock.fullName} (${activeLock.email}). Please wait until they sign out.`);
+      return;
+    }
+
     setLoading(true);
+    // Wipe any lingering credential data before attempting sign-in.
+    clearStoredCredentials();
     try {
       const { data, error: authErr } = await supabase.auth.signInWithPassword({ email, password });
       if (authErr) throw authErr;
       const { data: profile } = await supabase.from('users').select('*').eq('id', data.user.id).single();
       const user = { id: data.user.id, fullName: profile?.full_name || data.user.email, email: data.user.email, role: profile?.role || 'user' };
-      try {
-        if (rememberMe) { localStorage.setItem('crrs_saved_email', email); localStorage.setItem('crrs_saved_pw', password); }
-        else { localStorage.removeItem('crrs_saved_email'); localStorage.removeItem('crrs_saved_pw'); }
-      } catch(e) {}
+      // Never store credentials — only clear, then lock the system to this user.
+      clearStoredCredentials();
+      setActiveSessionLock(user);
+      setEmail('');
+      setPassword('');
       onLogin(user);
-      toast(`Welcome back, ${user.fullName.split(' ')[0]}!`, 'success');
-    } catch (e) { setError(e.message || 'Sign in failed.'); }
-    setLoading(false);
+      toast(`Welcome back, ${user.fullName.split(' ')[0]}! Only this account may use the system until you sign out.`, 'success');
+    } catch (e) {
+      setError(e.message || 'Sign in failed.');
+    } finally {
+      // Always clear credential storage after a sign-in attempt, success or failure.
+      clearStoredCredentials();
+      setLoading(false);
+    }
   };
 
   if (screen === 'register') return (
@@ -496,14 +561,15 @@ function LoginScreen({ onLogin, toast }) {
           </div>
           <h2 className="auth-form-title">Sign in</h2>
           <p className="auth-form-sub">Enter your credentials to access the system</p>
-          {error && <div className="msg-box msg-error">{error}</div>}
-          <div className="field"><label>Email Address</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" onKeyDown={e => e.key==='Enter' && login()} autoComplete="username" /></div>
-          <div className="field"><label>Password</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" onKeyDown={e => e.key==='Enter' && login()} autoComplete="current-password" /></div>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem',marginTop:'-.25rem'}}>
-            <div style={{display:'flex',alignItems:'center',gap:7}}>
-              <input type="checkbox" id="rememberMe" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} style={{width:15,height:15,cursor:'pointer'}} />
-              <label htmlFor="rememberMe" style={{fontSize:12,color:'var(--text-secondary)',cursor:'pointer',margin:0}}>Remember me</label>
+          {lockedBy && (
+            <div className="msg-box msg-info">
+              ⚠ Only one user may use this system at a time. It is currently signed in as <strong>{lockedBy.fullName}</strong> ({lockedBy.email}). Please wait until they sign out before signing in as someone else.
             </div>
+          )}
+          {error && <div className="msg-box msg-error">{error}</div>}
+          <div className="field"><label>Email Address</label><input type="email" name="crrs_email_field" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" onKeyDown={e => e.key==='Enter' && login()} autoComplete="off" data-lpignore="true" data-1p-ignore="true" /></div>
+          <div className="field"><label>Password</label><input type="password" name="crrs_password_field" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" onKeyDown={e => e.key==='Enter' && login()} autoComplete="off" data-lpignore="true" data-1p-ignore="true" /></div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',marginBottom:'1rem',marginTop:'-.25rem'}}>
             <button className="link-btn" onClick={() => setScreen('forgot')}>Forgot password?</button>
           </div>
           <button className="btn-primary" onClick={login} disabled={loading}>
@@ -1150,9 +1216,19 @@ function App() {
 
   const logout = () => {
     if (supabase) supabase.auth.signOut();
+    clearStoredCredentials();
+    clearActiveSessionLock();
     setCurrentUser(null);
-    toast('Signed out.', 'info');
+    toast('Signed out. All stored credentials and the session lock have been cleared.', 'info');
   };
+
+  // Best-effort: release the single-user lock if the browser/tab closes without an explicit sign-out.
+  useEffect(() => {
+    if (!currentUser) return;
+    const releaseLock = () => clearActiveSessionLock();
+    window.addEventListener('beforeunload', releaseLock);
+    return () => window.removeEventListener('beforeunload', releaseLock);
+  }, [currentUser]);
 
   if (!currentUser) {
     return (
