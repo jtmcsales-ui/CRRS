@@ -614,16 +614,20 @@ function LoginScreen({ onLogin, toast }) {
         accessToken: data.session?.access_token || null, // kept in memory only, used for a reliable release on tab close
       };
 
-      // Database-level check: the system allows only one active account at a time.
-      // If anyone (even a different account) is already active, this login is blocked.
+      // Database-level check: the system allows only one active account at a time,
+      // and that includes THIS account — if it's already active on another device,
+      // this login is blocked too, not just logins from other accounts.
       const claim = await claimDbSession(user.id);
       if (!claim.claimed) {
         await supabase.auth.signOut();
         const info = claim.activeInfo;
+        const isSameAccount = info && info.email && info.email.toLowerCase() === user.email.toLowerCase();
         setError(
-          info
-            ? `This system is currently in use by ${info.full_name} (${info.email}) on ${info.active_device || 'another device'}, last active ${timeAgo(info.last_active_at)}. Only one user can be signed in at a time — please wait until they sign out.`
-            : 'This system is currently in use by another account. Only one user can be signed in at a time — please wait until they sign out.'
+          isSameAccount
+            ? `This account is already signed in on ${info.active_device || 'another device'}, last active ${timeAgo(info.last_active_at)}. Please sign out there first — the same account can't be signed in twice at once.`
+            : info
+              ? `This system is currently in use by ${info.full_name} (${info.email}) on ${info.active_device || 'another device'}, last active ${timeAgo(info.last_active_at)}. Only one user can be signed in at a time — please wait until they sign out.`
+              : 'This system is currently in use by another account. Only one user can be signed in at a time — please wait until they sign out.'
         );
         setPassword('');
         return;
