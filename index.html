@@ -222,7 +222,12 @@ const { useState, useEffect, useCallback, useRef } = React;
 // supabase.from(...) call below hits your actual Postgres database.
 const SUPABASE_URL = 'https://ryqfpwmdcntbceisjryc.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5cWZwd21kY250YmNlaXNqcnljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2OTAyMjUsImV4cCI6MjA5ODI2NjIyNX0.enugYh1hKAaWOL9lOFhkGYi3NF-Rad6WcLe3iWDLlA0';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// persistSession/autoRefreshToken are disabled on purpose: this is a shared-computer app,
+// so we never want Supabase to silently auto-restore a previous person's login from
+// browser storage. Every visit requires a fresh, explicit sign-in.
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+});
 
 // ─── LOGO ───
 const LOGO_SRC = 'data:image/png;base64,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';
@@ -464,6 +469,109 @@ function clearActiveSessionLock() {
   try { localStorage.removeItem(SESSION_LOCK_KEY); } catch (e) {}
 }
 
+// ─── DATABASE-BACKED SYSTEM-WIDE SINGLE-USER LOCK ───
+// The localStorage lock above only protects a single browser/machine. This section
+// checks the `users` table itself, so ONLY ONE ACCOUNT — any account — can be signed
+// in anywhere at a time. If someone is already active, every other login attempt
+// (even from a different person/device) is blocked until they sign out.
+// Requires the migration in migration_active_sessions.sql to be run first:
+//   users.is_active boolean, users.last_active_at timestamptz, users.active_device text
+//   + the claim_active_session(...) function (does the check atomically, avoiding
+//     race conditions if two people try to log in at nearly the same moment).
+const DB_SESSION_STALE_MS = 5 * 60 * 1000;    // a session with no heartbeat for 5 min is considered abandoned
+const DB_SESSION_STALE_SECONDS = DB_SESSION_STALE_MS / 1000;
+const DB_SESSION_HEARTBEAT_MS = 90 * 1000;    // refresh "still active" every 90 sec while signed in
+
+function getDeviceLabel() {
+  try {
+    const ua = navigator.userAgent || '';
+    let browser = 'Browser';
+    if (/Edg\//.test(ua)) browser = 'Edge';
+    else if (/Chrome\//.test(ua) && !/Chromium/.test(ua)) browser = 'Chrome';
+    else if (/Firefox\//.test(ua)) browser = 'Firefox';
+    else if (/Safari\//.test(ua) && !/Chrome/.test(ua)) browser = 'Safari';
+    let os = 'device';
+    if (/Windows/.test(ua)) os = 'Windows';
+    else if (/Mac OS X/.test(ua)) os = 'Mac';
+    else if (/Android/.test(ua)) os = 'Android';
+    else if (/iPhone|iPad/.test(ua)) os = 'iOS';
+    else if (/Linux/.test(ua)) os = 'Linux';
+    return `${browser} on ${os}`;
+  } catch (e) { return 'Unknown device'; }
+}
+
+function timeAgo(iso) {
+  if (!iso) return 'a while ago';
+  const mins = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+  const hrs = Math.round(mins / 60);
+  return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
+}
+
+// Asks the database, atomically, whether this account may become the system's active
+// user. Blocks if ANY account (including this one, on another device) is already
+// active and its session hasn't gone stale.
+async function claimDbSession(userId) {
+  try {
+    const { data, error } = await supabase.rpc('claim_active_session', {
+      p_user_id: userId,
+      p_device: getDeviceLabel(),
+      p_stale_seconds: DB_SESSION_STALE_SECONDS,
+    });
+    const result = Array.isArray(data) ? data[0] : data;
+    if (error || !result) {
+      console.warn('Active-session check failed, allowing sign-in:', error?.message);
+      return { claimed: true };
+    }
+    if (!result.claimed) {
+      return {
+        claimed: false,
+        activeInfo: {
+          full_name: result.active_full_name,
+          email: result.active_email,
+          active_device: result.active_device,
+          last_active_at: result.active_last_active_at,
+        },
+      };
+    }
+    return { claimed: true };
+  } catch (e) {
+    // If the RPC isn't set up yet, fail safe by allowing sign-in rather than locking
+    // everyone out — but log it so it's visible that the migration still needs to run.
+    console.warn('Active-session check failed, allowing sign-in:', e.message);
+    return { claimed: true };
+  }
+}
+
+async function releaseDbSession(userId) {
+  try { await supabase.from('users').update({ is_active: false }).eq('id', userId); } catch (e) {}
+}
+
+// Same effect as releaseDbSession, but uses a raw `fetch` with `keepalive: true` instead
+// of the normal Supabase client call. Browsers can abort in-flight requests the instant a
+// tab closes; a keepalive fetch is specifically designed to survive that and still be sent.
+// Must be called synchronously (not awaited) from a 'pagehide'/'beforeunload' handler.
+function releaseDbSessionBeacon(userId, accessToken) {
+  if (!userId) return;
+  try {
+    fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(userId)}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${accessToken || SUPABASE_ANON_KEY}`,
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({ is_active: false }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+async function heartbeatDbSession(userId) {
+  try { await supabase.from('users').update({ last_active_at: new Date().toISOString() }).eq('id', userId).eq('is_active', true); } catch (e) {}
+}
+
 function LoginScreen({ onLogin, toast }) {
   const [screen, setScreen] = useState('login');
   // Fields always start blank — no credentials are ever auto-filled from storage.
@@ -498,7 +606,29 @@ function LoginScreen({ onLogin, toast }) {
       const { data, error: authErr } = await supabase.auth.signInWithPassword({ email, password });
       if (authErr) throw authErr;
       const { data: profile } = await supabase.from('users').select('*').eq('id', data.user.id).single();
-      const user = { id: data.user.id, fullName: profile?.full_name || data.user.email, email: data.user.email, role: profile?.role || 'user' };
+      const user = {
+        id: data.user.id,
+        fullName: profile?.full_name || data.user.email,
+        email: data.user.email,
+        role: profile?.role || 'user',
+        accessToken: data.session?.access_token || null, // kept in memory only, used for a reliable release on tab close
+      };
+
+      // Database-level check: the system allows only one active account at a time.
+      // If anyone (even a different account) is already active, this login is blocked.
+      const claim = await claimDbSession(user.id);
+      if (!claim.claimed) {
+        await supabase.auth.signOut();
+        const info = claim.activeInfo;
+        setError(
+          info
+            ? `This system is currently in use by ${info.full_name} (${info.email}) on ${info.active_device || 'another device'}, last active ${timeAgo(info.last_active_at)}. Only one user can be signed in at a time — please wait until they sign out.`
+            : 'This system is currently in use by another account. Only one user can be signed in at a time — please wait until they sign out.'
+        );
+        setPassword('');
+        return;
+      }
+
       // Never store credentials — only clear, then lock the system to this user.
       clearStoredCredentials();
       setActiveSessionLock(user);
@@ -1039,6 +1169,66 @@ function MyReservations({ currentUser, toast, rooms }) {
 }
 
 // ─── ADMIN PANEL ───
+// ─── ACTIVE SESSIONS (admin view of the single-device lock) ───
+function ActiveSessionsCard({ toast }) {
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await supabase.from('users').select('id,full_name,email,last_active_at,active_device').eq('is_active', true).order('last_active_at', { ascending: false });
+      setSessions(data || []);
+    } catch (e) { toast('Failed to load active sessions.', 'error'); }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-active-sessions')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => { load(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [load]);
+
+  const forceRelease = async (u) => {
+    if (!confirm(`Force sign out ${u.full_name}? Only do this if they're locked out from a crashed or lost device.`)) return;
+    await releaseDbSession(u.id);
+    toast(`${u.full_name}'s session was released.`, 'success');
+    load();
+  };
+
+  return (
+    <div className="table-card" style={{ marginBottom: '1.5rem' }}>
+      <div className="table-card-header">
+        <span className="table-card-title">
+          Active Sessions
+          <span style={{ fontSize: 10, fontWeight: 700, background: '#ecfdf5', color: '#059669', border: '1px solid #6ee7b7', borderRadius: 20, padding: '2px 8px', marginLeft: 6, verticalAlign: 'middle' }}>● LIVE</span>
+        </span>
+      </div>
+      {loading ? (
+        <div style={{ padding: '1rem', fontSize: 13, color: 'var(--text-muted)' }}>Loading…</div>
+      ) : sessions.length === 0 ? (
+        <div style={{ padding: '1rem', fontSize: 13, color: 'var(--text-muted)' }}>No user is currently signed in.</div>
+      ) : (
+        <div style={{ padding: '.25rem 1rem' }}>
+          {sessions.map(u => (
+            <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '.6rem 0', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)' }}>{u.full_name} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>({u.email})</span></div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{u.active_device || 'Unknown device'} · last active {timeAgo(u.last_active_at)}</div>
+              </div>
+              <button className="btn btn-sm btn-danger" onClick={() => forceRelease(u)}>Force Sign Out</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminPanel({ toast }) {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1098,6 +1288,7 @@ function AdminPanel({ toast }) {
 
   return (
     <div>
+      <ActiveSessionsCard toast={toast} />
       <div className="stats-row">
         <div className="stat-card"><div className="stat-label">Total Requests</div><div className="stat-value">{stats.total}</div></div>
         <div className="stat-card"><div className="stat-label">Pending</div><div className="stat-value" style={{color:'var(--warning)'}}>{stats.pending}</div></div>
@@ -1216,18 +1407,42 @@ function App() {
 
   const logout = () => {
     if (supabase) supabase.auth.signOut();
+    if (currentUser) releaseDbSession(currentUser.id);
     clearStoredCredentials();
     clearActiveSessionLock();
     setCurrentUser(null);
-    toast('Signed out. All stored credentials and the session lock have been cleared.', 'info');
+    toast('Signed out. Your session has been released.', 'info');
   };
 
-  // Best-effort: release the single-user lock if the browser/tab closes without an explicit sign-out.
+  // Keep the DB-backed session "alive" so it isn't reclaimed as stale while genuinely in use.
   useEffect(() => {
     if (!currentUser) return;
-    const releaseLock = () => clearActiveSessionLock();
-    window.addEventListener('beforeunload', releaseLock);
-    return () => window.removeEventListener('beforeunload', releaseLock);
+    const interval = setInterval(() => heartbeatDbSession(currentUser.id), DB_SESSION_HEARTBEAT_MS);
+    return () => clearInterval(interval);
+  }, [currentUser]);
+
+  // Reliably flip is_active back to false even if the tab/browser is closed, refreshed,
+  // or crashes without the user ever clicking "Sign Out". 'pagehide' fires on real
+  // navigation-away/close (including mobile, more reliably than 'beforeunload' alone) and
+  // triggers a keepalive fetch designed to survive the page tearing down. Merely switching
+  // tabs/apps ('visibilitychange' → hidden) is NOT treated as closing — it just sends one
+  // extra heartbeat, since background tabs can get their timers throttled; if the tab never
+  // comes back, the short server-side stale timeout is the final safety net.
+  useEffect(() => {
+    if (!currentUser) return;
+    const release = () => {
+      clearActiveSessionLock();
+      releaseDbSessionBeacon(currentUser.id, currentUser.accessToken);
+    };
+    const onVisibilityChange = () => { if (document.visibilityState === 'hidden') heartbeatDbSession(currentUser.id); };
+    window.addEventListener('pagehide', release);
+    window.addEventListener('beforeunload', release);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', release);
+      window.removeEventListener('beforeunload', release);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [currentUser]);
 
   if (!currentUser) {
