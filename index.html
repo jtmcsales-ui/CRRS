@@ -1005,7 +1005,17 @@ function BookingForm({ currentUser, rooms, onBooked, toast }) {
         date: form.date, time_from: form.timeFrom, time_to: form.timeTo,
         purpose: form.purpose, attendees: form.attendees, status: 'pending',
       }).select().single();
-      if (dbErr) throw dbErr;
+      if (dbErr) {
+        // The database itself now refuses any overlapping pending/approved booking for
+        // the same room (an EXCLUDE constraint), which closes the race window where two
+        // people submit for the same room/date/time at nearly the same instant and both
+        // pass the earlier client-side check above. Postgres reports that as error code
+        // 23P01 (exclusion_violation) — show the same friendly conflict message for it.
+        if (dbErr.code === '23P01') {
+          throw new Error(`⛔ Time conflict: Someone just booked this room for an overlapping time on ${form.date}. Please choose a different time.`);
+        }
+        throw dbErr;
+      }
 
       await sendEmail({
         to: currentUser.email, toName: currentUser.fullName,
