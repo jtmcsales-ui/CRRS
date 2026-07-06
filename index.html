@@ -333,9 +333,19 @@ function RegisterScreen({ onBack, onSuccess, toast }) {
     if (form.password !== form.confirmPw) return setError('Passwords do not match.');
     setLoading(true);
     try {
-      const { data, error: authErr } = await supabase.auth.signUp({ email: form.email, password: form.password, options: { data: { fullName: form.fullName, role: 'user', secretQuestion: form.secretQuestion, secretAnswer: form.secretAnswer.toLowerCase() } } });
-      if (authErr) throw authErr;
-      if (data.user) { await supabase.from('users').insert({ id: data.user.id, full_name: form.fullName, email: form.email.toLowerCase(), role: 'user', secret_question: form.secretQuestion, secret_answer: form.secretAnswer.toLowerCase() }); }
+      // Registration (including the duplicate email/username check) is handled by a
+      // server-side function. Client-side supabase.auth.signUp() can't be trusted for
+      // this: with email confirmations on, Supabase deliberately returns a fake
+      // success for an already-registered email (to prevent user enumeration), so a
+      // duplicate signup would otherwise silently "succeed" without creating an
+      // account or warning the user.
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({ fullName: form.fullName.trim(), email: form.email.trim(), password: form.password, secretQuestion: form.secretQuestion, secretAnswer: form.secretAnswer }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Registration failed.');
       toast('Account created! Please sign in.', 'success');
       onSuccess({ email: form.email, password: form.password });
     } catch (e) { setError(e.message || 'Registration failed.'); }
@@ -378,14 +388,27 @@ function ForgotPasswordScreen({ onBack, toast }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // All three steps below call a server-side edge function instead of talking to
+  // Supabase directly. This fixes two problems with the old client-only approach:
+  // 1. supabase.auth.updateUser() requires an active, signed-in session. A user
+  //    recovering a forgotten password has no session, so the update silently
+  //    failed with "Auth session missing" every time — this was the reset bug.
+  // 2. The old code fetched the full user row (including secret_answer) to the
+  //    browser just to compare it client-side, which leaks the answer to anyone
+  //    inspecting network traffic. The answer is now verified server-side only.
   const step1 = async () => {
     setError('');
     if (!email.trim()) return setError('Enter your email address.');
     setLoading(true);
     try {
-      const { data } = await supabase.from('users').select('*').eq('email', email.toLowerCase()).single();
-      if (!data) throw new Error('No account found with that email.');
-      setFoundUser(data);
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({ action: 'lookup', email: email.trim() }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'No account found with that email.');
+      setFoundUser({ question: result.question });
       setStep(2);
     } catch (e) { setError(e.message); }
     setLoading(false);
@@ -394,7 +417,9 @@ function ForgotPasswordScreen({ onBack, toast }) {
   const step2 = () => {
     setError('');
     if (!answer.trim()) return setError('Enter your answer.');
-    if (answer.toLowerCase().trim() !== (foundUser.secret_answer || '').toLowerCase().trim()) return setError('Incorrect answer. Try again.');
+    // The answer itself is verified server-side in step3 (we no longer have it
+    // client-side to compare against) — this just requires something be typed
+    // before moving on to setting a new password.
     setStep(3);
   };
 
@@ -405,8 +430,18 @@ function ForgotPasswordScreen({ onBack, toast }) {
     if (newPw !== confirmPw) return setError('Passwords do not match.');
     setLoading(true);
     try {
-      const { error: e } = await supabase.auth.updateUser({ password: newPw });
-      if (e) throw e;
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({ action: 'reset', email: email.trim(), secretAnswer: answer, newPassword: newPw }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        // An incorrect answer is only discovered here now (verified server-side).
+        // Send the user back to step 2 to try again rather than losing their progress.
+        if (res.status === 401) { setStep(2); }
+        throw new Error(result.error || 'Failed to update password.');
+      }
       toast('Password updated! Please sign in.', 'success');
       onBack();
     } catch (e) { setError(e.message || 'Failed to update password.'); }
@@ -419,7 +454,7 @@ function ForgotPasswordScreen({ onBack, toast }) {
       <p className="auth-form-sub">Step {step} of 3 – {step===1?'Verify your email':step===2?'Answer your security question':'Set new password'}</p>
       {error && <div className="msg-box msg-error">{error}</div>}
       {step === 1 && (<><div className="field"><label>Email Address</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoComplete="off" data-lpignore="true" data-1p-ignore="true" /></div><button className="btn-primary" onClick={step1} disabled={loading}>{loading ? <span className="spinner" style={{borderTopColor:'#fff'}} /> : 'Find Account'}</button></>)}
-      {step === 2 && foundUser && (<><div className="sq-card"><div className="sq-label">Your security question</div><div className="sq-q">{foundUser.secret_question}</div></div><div className="field"><label>Your Answer</label><input value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Case-insensitive" onKeyDown={e => e.key==='Enter' && step2()} /></div><button className="btn-primary" onClick={step2}>Verify Answer</button></>)}
+      {step === 2 && foundUser && (<><div className="sq-card"><div className="sq-label">Your security question</div><div className="sq-q">{foundUser.question}</div></div><div className="field"><label>Your Answer</label><input value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Case-insensitive" onKeyDown={e => e.key==='Enter' && step2()} /></div><button className="btn-primary" onClick={step2}>Verify Answer</button></>)}
       {step === 3 && (<><div className="msg-box msg-info">✓ Identity verified. Set your new password below.</div><div className="field"><label>New Password</label><input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Min 8 chars, uppercase, number, symbol" autoComplete="off" data-lpignore="true" data-1p-ignore="true" /></div><div className="field"><label>Confirm New Password</label><input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="Repeat new password" autoComplete="off" data-lpignore="true" data-1p-ignore="true" /></div><button className="btn-primary" onClick={step3} disabled={loading}>{loading ? <span className="spinner" style={{borderTopColor:'#fff'}} /> : 'Update Password'}</button></>)}
       <div className="divider-line">or</div>
       <button className="link-btn" style={{display:'block',textAlign:'center',width:'100%'}} onClick={onBack}>Back to Sign In</button>
@@ -428,10 +463,6 @@ function ForgotPasswordScreen({ onBack, toast }) {
 }
 
 // ─── LOGIN SCREEN ───
-// Key used to lock the system to a single signed-in user at a time.
-const SESSION_LOCK_KEY = 'crrs_active_session_lock';
-// A stale lock (e.g. left behind by a crashed tab/browser) auto-expires after this long.
-const SESSION_LOCK_MAX_AGE_MS = 8 * 60 * 60 * 1000; // 8 hours
 
 // Wipes any credential/session data that should never persist in browser storage.
 function clearStoredCredentials() {
@@ -441,46 +472,27 @@ function clearStoredCredentials() {
     localStorage.removeItem('crrs_saved_pw');
     sessionStorage.removeItem('crrs_saved_email');
     sessionStorage.removeItem('crrs_saved_pw');
+    // Legacy key from the old cross-account "single user for the whole system"
+    // lock — no longer used, since the lock is now scoped per-account (see
+    // claim_active_session in the DB). Removed here too so it doesn't linger.
+    localStorage.removeItem('crrs_active_session_lock');
   } catch (e) {}
 }
 
-function getActiveSessionLock() {
-  try {
-    const raw = localStorage.getItem(SESSION_LOCK_KEY);
-    if (!raw) return null;
-    const lock = JSON.parse(raw);
-    if (!lock?.loginAt || Date.now() - lock.loginAt > SESSION_LOCK_MAX_AGE_MS) {
-      localStorage.removeItem(SESSION_LOCK_KEY);
-      return null;
-    }
-    return lock;
-  } catch (e) { return null; }
-}
-
-function setActiveSessionLock(user) {
-  try {
-    localStorage.setItem(SESSION_LOCK_KEY, JSON.stringify({
-      email: user.email, fullName: user.fullName, loginAt: Date.now()
-    }));
-  } catch (e) {}
-}
-
-function clearActiveSessionLock() {
-  try { localStorage.removeItem(SESSION_LOCK_KEY); } catch (e) {}
-}
-
-// ─── DATABASE-BACKED SYSTEM-WIDE SINGLE-USER LOCK ───
-// The localStorage lock above only protects a single browser/machine. This section
-// checks the `users` table itself, so ONLY ONE ACCOUNT — any account — can be signed
-// in anywhere at a time. If someone is already active, every other login attempt
-// (even from a different person/device) is blocked until they sign out.
+// ─── DATABASE-BACKED PER-ACCOUNT SINGLE-SESSION LOCK ───
+// Checks the `users` table so that a given ACCOUNT (email address) can only be
+// signed in from one browser/device at a time. Different accounts are free to
+// be signed in simultaneously from different devices — this only traps the
+// SAME email address trying to sign in a second time while its first session
+// is still active.
 // Requires the migration in migration_active_sessions.sql to be run first:
 //   users.is_active boolean, users.last_active_at timestamptz, users.active_device text
 //   + the claim_active_session(...) function (does the check atomically, avoiding
-//     race conditions if two people try to log in at nearly the same moment).
-const DB_SESSION_STALE_MS = 5 * 60 * 1000;    // a session with no heartbeat for 5 min is considered abandoned
+//     race conditions if the same account tries to log in twice at nearly the same moment).
+const DB_SESSION_STALE_MS = 15 * 60 * 1000;   // a session with no heartbeat for 15 min is considered abandoned/inactive and is auto-removed
 const DB_SESSION_STALE_SECONDS = DB_SESSION_STALE_MS / 1000;
 const DB_SESSION_HEARTBEAT_MS = 90 * 1000;    // refresh "still active" every 90 sec while signed in
+const DB_SESSION_SWEEP_MS = 60 * 1000;        // how often we proactively check the DB for stale sessions to auto-remove
 
 function getDeviceLabel() {
   try {
@@ -508,9 +520,9 @@ function timeAgo(iso) {
   return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
 }
 
-// Asks the database, atomically, whether this account may become the system's active
-// user. Blocks if ANY account (including this one, on another device) is already
-// active and its session hasn't gone stale.
+// Asks the database, atomically, whether THIS account may sign in. Blocks only if
+// this same account is already active elsewhere (another browser/device) and its
+// session hasn't gone stale. Other accounts being active has no effect here.
 async function claimDbSession(userId) {
   try {
     const { data, error } = await supabase.rpc('claim_active_session', {
@@ -547,6 +559,19 @@ async function releaseDbSession(userId) {
   try { await supabase.from('users').update({ is_active: false }).eq('id', userId); } catch (e) {}
 }
 
+// Proactively auto-removes any logged-in user/admin whose session has gone silent
+// (no heartbeat) for longer than DB_SESSION_STALE_MS, by flipping is_active back to
+// false in the database directly — rather than only reclaiming it lazily the next
+// time someone tries to log back in with those same credentials. Runs on an interval
+// from any signed-in client, so the DB (and the admin's Active Sessions view) reflects
+// the 15-minute inactivity rule on its own.
+async function sweepStaleSessions() {
+  try {
+    const cutoff = new Date(Date.now() - DB_SESSION_STALE_MS).toISOString();
+    await supabase.from('users').update({ is_active: false }).eq('is_active', true).lt('last_active_at', cutoff);
+  } catch (e) {}
+}
+
 // Same effect as releaseDbSession, but uses a raw `fetch` with `keepalive: true` instead
 // of the normal Supabase client call. Browsers can abort in-flight requests the instant a
 // tab closes; a keepalive fetch is specifically designed to survive that and still be sent.
@@ -579,31 +604,30 @@ function LoginScreen({ onLogin, toast }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [lockedBy, setLockedBy] = useState(() => getActiveSessionLock());
 
   // Clear any leftover credential data the moment the login screen mounts.
   useEffect(() => {
     clearStoredCredentials();
-    setLockedBy(getActiveSessionLock());
   }, []);
 
   const login = async () => {
     setError('');
-    if (!email.trim() || !password) return setError('Email and password are required.');
+    const emailToLogin = email.trim();
+    const passwordToLogin = password;
+    if (!emailToLogin || !passwordToLogin) return setError('Email and password are required.');
 
-    // Enforce single-user access: block sign-in while another user's session is active.
-    const activeLock = getActiveSessionLock();
-    if (activeLock && activeLock.email.toLowerCase() !== email.trim().toLowerCase()) {
-      setLockedBy(activeLock);
-      setError(`Only one user may use this system at a time. It is currently signed in as ${activeLock.fullName} (${activeLock.email}). Please wait until they sign out.`);
-      return;
-    }
+    // Clear the visible Sign In fields as soon as an attempt starts (not just on
+    // success), so the credentials don't linger in the inputs while the request
+    // is in flight. The values needed for the actual sign-in call were already
+    // captured above.
+    setEmail('');
+    setPassword('');
 
     setLoading(true);
     // Wipe any lingering credential data before attempting sign-in.
     clearStoredCredentials();
     try {
-      const { data, error: authErr } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error: authErr } = await supabase.auth.signInWithPassword({ email: emailToLogin, password: passwordToLogin });
       if (authErr) throw authErr;
       const { data: profile } = await supabase.from('users').select('*').eq('id', data.user.id).single();
       const user = {
@@ -614,32 +638,23 @@ function LoginScreen({ onLogin, toast }) {
         accessToken: data.session?.access_token || null, // kept in memory only, used for a reliable release on tab close
       };
 
-      // Database-level check: the system allows only one active account at a time,
-      // and that includes THIS account — if it's already active on another device,
-      // this login is blocked too, not just logins from other accounts.
+      // Database-level check: THIS account (this email address) can only be active
+      // on one browser/device at a time. Other accounts logging in elsewhere have
+      // no effect on this check.
       const claim = await claimDbSession(user.id);
       if (!claim.claimed) {
         await supabase.auth.signOut();
         const info = claim.activeInfo;
-        const isSameAccount = info && info.email && info.email.toLowerCase() === user.email.toLowerCase();
         setError(
-          isSameAccount
-            ? `This account is already signed in on ${info.active_device || 'another device'}, last active ${timeAgo(info.last_active_at)}. Please sign out there first — the same account can't be signed in twice at once.`
-            : info
-              ? `This system is currently in use by ${info.full_name} (${info.email}) on ${info.active_device || 'another device'}, last active ${timeAgo(info.last_active_at)}. Only one user can be signed in at a time — please wait until they sign out.`
-              : 'This system is currently in use by another account. Only one user can be signed in at a time — please wait until they sign out.'
+          `This account is already signed in on ${info?.active_device || 'another device'}${info?.last_active_at ? `, last active ${timeAgo(info.last_active_at)}` : ''}. Please sign out there first — the same email address can't be signed in twice at once.`
         );
-        setPassword('');
         return;
       }
 
-      // Never store credentials — only clear, then lock the system to this user.
+      // Never store credentials.
       clearStoredCredentials();
-      setActiveSessionLock(user);
-      setEmail('');
-      setPassword('');
       onLogin(user);
-      toast(`Welcome back, ${user.fullName.split(' ')[0]}! Only this account may use the system until you sign out.`, 'success');
+      toast(`Welcome back, ${user.fullName.split(' ')[0]}!`, 'success');
     } catch (e) {
       setError(e.message || 'Sign in failed.');
     } finally {
@@ -695,11 +710,6 @@ function LoginScreen({ onLogin, toast }) {
           </div>
           <h2 className="auth-form-title">Sign in</h2>
           <p className="auth-form-sub">Enter your credentials to access the system</p>
-          {lockedBy && (
-            <div className="msg-box msg-info">
-              ⚠ Only one user may use this system at a time. It is currently signed in as <strong>{lockedBy.fullName}</strong> ({lockedBy.email}). Please wait until they sign out before signing in as someone else.
-            </div>
-          )}
           {error && <div className="msg-box msg-error">{error}</div>}
           <div className="field"><label>Email Address</label><input type="email" name="crrs_email_field" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" onKeyDown={e => e.key==='Enter' && login()} autoComplete="off" data-lpignore="true" data-1p-ignore="true" /></div>
           <div className="field"><label>Password</label><input type="password" name="crrs_password_field" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" onKeyDown={e => e.key==='Enter' && login()} autoComplete="off" data-lpignore="true" data-1p-ignore="true" /></div>
@@ -1413,7 +1423,6 @@ function App() {
     if (supabase) supabase.auth.signOut();
     if (currentUser) releaseDbSession(currentUser.id);
     clearStoredCredentials();
-    clearActiveSessionLock();
     setCurrentUser(null);
     toast('Signed out. Your session has been released.', 'info');
   };
@@ -1425,6 +1434,16 @@ function App() {
     return () => clearInterval(interval);
   }, [currentUser]);
 
+  // Continuously check the database for any user/admin whose session has gone silent
+  // for 15+ minutes and auto-remove (log out) that stale session — independent of
+  // whether anyone is trying to log back in. Runs regardless of who is currently
+  // signed in, including before any login on this device.
+  useEffect(() => {
+    sweepStaleSessions();
+    const interval = setInterval(sweepStaleSessions, DB_SESSION_SWEEP_MS);
+    return () => clearInterval(interval);
+  }, []);
+
   // Reliably flip is_active back to false even if the tab/browser is closed, refreshed,
   // or crashes without the user ever clicking "Sign Out". 'pagehide' fires on real
   // navigation-away/close (including mobile, more reliably than 'beforeunload' alone) and
@@ -1435,7 +1454,6 @@ function App() {
   useEffect(() => {
     if (!currentUser) return;
     const release = () => {
-      clearActiveSessionLock();
       releaseDbSessionBeacon(currentUser.id, currentUser.accessToken);
     };
     const onVisibilityChange = () => { if (document.visibilityState === 'hidden') heartbeatDbSession(currentUser.id); };
